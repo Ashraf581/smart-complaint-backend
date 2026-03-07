@@ -1,101 +1,95 @@
 package com.smartcomplaints.complaint.service.client;
 
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.*;
-
-// ============================================
-// MlServiceClient.java
-// This class calls our Python FastAPI ML service
-// It sends complaint text and gets back
-// department + priority predictions
-// ============================================
+import java.time.Duration;
 
 @Component
 @Slf4j
 public class MlServiceClient {
 
-    // URL of our Python FastAPI service
-    private static final String ML_SERVICE_URL =
-            "http://localhost:8000/predict";
-
     private final RestTemplate restTemplate;
 
-    public MlServiceClient() {
-        this.restTemplate = new RestTemplate();
+    // Reads from application.properties
+    // Uses localhost:8000 locally
+    // Uses Railway URL in production
+    @Value("${ml.service.url:http://localhost:8000}")
+    private String mlServiceUrl;
+
+    public MlServiceClient(
+            RestTemplateBuilder builder) {
+        this.restTemplate = builder
+                .connectTimeout(Duration.ofSeconds(10))
+                .readTimeout(Duration.ofSeconds(90))
+                .build();
     }
 
-    // ============================================
-    // Request class - what we send to ML service
-    // ============================================
-    @Data
+    public MlResponse predict(
+            String title, String description) {
+        try {
+            String url = mlServiceUrl + "/predict";
+            log.info("🤖 Calling ML: {}", url);
+
+            MlRequest request =
+                    new MlRequest(title, description);
+            MlResponse response = restTemplate.postForObject(
+                    url, request, MlResponse.class);
+
+            if (response != null) {
+                log.info("✅ ML Response: dept={}, priority={}",
+                        response.getDepartment(),
+                        response.getPriority());
+                return response;
+            }
+        } catch (Exception e) {
+            log.error("❌ ML Service error: {}",
+                    e.getMessage());
+        }
+
+        // Default fallback
+        MlResponse fallback = new MlResponse();
+        fallback.setDepartment("UNASSIGNED");
+        fallback.setPriority("MEDIUM");
+        fallback.setConfidence("0%");
+        return fallback;
+    }
+
+    // Inner classes
     public static class MlRequest {
         private String title;
         private String description;
 
-        public MlRequest(String title, String description) {
+        public MlRequest(String title,
+                         String description) {
             this.title = title;
             this.description = description;
         }
+
+        public String getTitle() { return title; }
+        public String getDescription() {
+            return description; }
     }
 
-    // ============================================
-    // Response class - what ML service returns
-    // ============================================
-    @Data
     public static class MlResponse {
         private String department;
         private String priority;
         private String confidence;
-    }
 
-    // ============================================
-    // Main method - calls the ML service
-    // ============================================
-    public MlResponse predict(String title, String description) {
-        try {
-            log.info("🤖 Calling ML service for: {}", title);
+        public String getDepartment() {
+            return department; }
+        public String getPriority() {
+            return priority; }
+        public String getConfidence() {
+            return confidence; }
 
-            // Set headers
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-
-            // Create request body
-            MlRequest request = new MlRequest(title, description);
-
-            // Wrap request with headers
-            HttpEntity<MlRequest> entity =
-                    new HttpEntity<>(request, headers);
-
-            // Call Python FastAPI service
-            ResponseEntity<MlResponse> response = restTemplate.exchange(
-                    ML_SERVICE_URL,
-                    HttpMethod.POST,
-                    entity,
-                    MlResponse.class
-            );
-
-            MlResponse mlResponse = response.getBody();
-            log.info("✅ ML Prediction: department={}, priority={}, confidence={}",
-                    mlResponse.getDepartment(),
-                    mlResponse.getPriority(),
-                    mlResponse.getConfidence());
-
-            return mlResponse;
-
-        } catch (Exception e) {
-            // If ML service is down, don't crash!
-            // Just return defaults
-            log.error("❌ ML service error: {}", e.getMessage());
-            log.warn("⚠️ Using default values: UNASSIGNED, MEDIUM");
-
-            MlResponse defaultResponse = new MlResponse();
-            defaultResponse.setDepartment("UNASSIGNED");
-            defaultResponse.setPriority("MEDIUM");
-            defaultResponse.setConfidence("0%");
-            return defaultResponse;
-        }
+        public void setDepartment(String d) {
+            this.department = d; }
+        public void setPriority(String p) {
+            this.priority = p; }
+        public void setConfidence(String c) {
+            this.confidence = c; }
     }
 }
