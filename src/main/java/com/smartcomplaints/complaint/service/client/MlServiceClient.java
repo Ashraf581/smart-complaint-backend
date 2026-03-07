@@ -2,9 +2,9 @@ package com.smartcomplaints.complaint.service.client;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import java.time.Duration;
 
 @Component
@@ -13,18 +13,21 @@ public class MlServiceClient {
 
     private final RestTemplate restTemplate;
 
-    // Reads from application.properties
-    // Uses localhost:8000 locally
-    // Uses Railway URL in production
     @Value("${ml.service.url:http://localhost:8000}")
     private String mlServiceUrl;
 
-    public MlServiceClient(
-            RestTemplateBuilder builder) {
-        this.restTemplate = builder
-                .connectTimeout(Duration.ofSeconds(10))
-                .readTimeout(Duration.ofSeconds(90))
-                .build();
+    // ============================================
+    // Constructor — builds RestTemplate manually
+    // No RestTemplateBuilder needed!
+    // ============================================
+    public MlServiceClient() {
+        SimpleClientHttpRequestFactory factory =
+                new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(
+                (int) Duration.ofSeconds(10).toMillis());
+        factory.setReadTimeout(
+                (int) Duration.ofSeconds(90).toMillis());
+        this.restTemplate = new RestTemplate(factory);
     }
 
     public MlResponse predict(
@@ -39,7 +42,7 @@ public class MlServiceClient {
                     url, request, MlResponse.class);
 
             if (response != null) {
-                log.info("✅ ML Response: dept={}, priority={}",
+                log.info("✅ ML: dept={}, priority={}",
                         response.getDepartment(),
                         response.getPriority());
                 return response;
@@ -57,7 +60,9 @@ public class MlServiceClient {
         return fallback;
     }
 
+    // ============================================
     // Inner classes
+    // ============================================
     public static class MlRequest {
         private String title;
         private String description;
@@ -70,7 +75,8 @@ public class MlServiceClient {
 
         public String getTitle() { return title; }
         public String getDescription() {
-            return description; }
+            return description;
+        }
     }
 
     public static class MlResponse {
@@ -79,17 +85,22 @@ public class MlServiceClient {
         private String confidence;
 
         public String getDepartment() {
-            return department; }
+            return department;
+        }
         public String getPriority() {
-            return priority; }
+            return priority;
+        }
         public String getConfidence() {
-            return confidence; }
-
+            return confidence;
+        }
         public void setDepartment(String d) {
-            this.department = d; }
+            this.department = d;
+        }
         public void setPriority(String p) {
-            this.priority = p; }
+            this.priority = p;
+        }
         public void setConfidence(String c) {
-            this.confidence = c; }
+            this.confidence = c;
+        }
     }
 }
