@@ -39,6 +39,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**")
                         .permitAll()
 
+                        // ✅ NEW — Monitoring endpoints (public access)
+                        .requestMatchers("/api/monitor/**")
+                        .permitAll()
+
+                        // ✅ NEW — Actuator endpoints (public access)
+                        .requestMatchers("/actuator/**")
+                        .permitAll()
+
                         // ✅ 2. Citizens + Admins can submit
                         .requestMatchers(HttpMethod.POST,
                                 "/api/complaint")
