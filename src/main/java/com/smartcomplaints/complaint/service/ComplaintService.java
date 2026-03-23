@@ -16,19 +16,14 @@ public class ComplaintService {
     private final ComplaintRepository complaintRepository;
     private final MlServiceClient mlServiceClient;
 
-    // ============================================
-    // Submit new complaint — saves username!
-    // ============================================
     public Complaint submitComplaint(
             Complaint complaint, String username) {
 
         log.info("📝 New complaint from {}: {}",
                 username, complaint.getTitle());
 
-        // Save who submitted this complaint
         complaint.setUsername(username);
 
-        // Call ML service for prediction
         MlServiceClient.MlResponse prediction =
                 mlServiceClient.predict(
                         complaint.getTitle(),
@@ -38,35 +33,44 @@ public class ComplaintService {
         complaint.setPriority(prediction.getPriority());
         complaint.setConfidence(prediction.getConfidence());
 
+        // ── NEW — set verification status ──────────────
+        if (complaint.getPhoto() != null
+                && !complaint.getPhoto().isEmpty()) {
+            if (complaint.getPhotoLatitude() != null
+                    && complaint.getPhotoLongitude() != null) {
+                complaint.setVerificationStatus("VERIFIED");
+                log.info("✅ Photo with GPS — VERIFIED");
+            } else {
+                complaint.setVerificationStatus("UNVERIFIED");
+                log.info("⚠️ Photo without GPS — UNVERIFIED");
+            }
+        } else {
+            complaint.setVerificationStatus("NO_PHOTO");
+            log.info("❌ No photo — NO_PHOTO");
+        }
+        // ───────────────────────────────────────────────
+
         Complaint saved = complaintRepository.save(complaint);
 
-        log.info("✅ Saved! ID={}, Dept={}, Priority={}",
+        log.info("✅ Saved! ID={}, Dept={}, Priority={}, Verification={}",
                 saved.getId(),
                 saved.getDepartment(),
-                saved.getPriority());
+                saved.getPriority(),
+                saved.getVerificationStatus());
 
         return saved;
     }
 
-    // ============================================
-    // Get ALL complaints (Admin only)
-    // ============================================
     public List<Complaint> getAllComplaints() {
         return complaintRepository.findAll();
     }
 
-    // ============================================
-    // Get complaints for CITIZEN (their own only)
-    // ============================================
     public List<Complaint> getMyComplaints(String username) {
         log.info("📋 Getting complaints for: {}", username);
         return complaintRepository
                 .findByUsernameOrderByCreatedAtDesc(username);
     }
 
-    // ============================================
-    // Update complaint status
-    // ============================================
     public Complaint updateStatus(Long id, String status) {
         log.info("🔄 Updating status ID={} to {}", id, status);
 
@@ -85,9 +89,6 @@ public class ComplaintService {
         return complaintRepository.save(complaint);
     }
 
-    // ============================================
-    // Re-classify complaint using ML
-    // ============================================
     public Complaint reclassify(Long id) {
         log.info("🤖 Re-classifying ID={}", id);
 
@@ -108,10 +109,6 @@ public class ComplaintService {
         return complaintRepository.save(complaint);
     }
 
-    // ============================================
-    // Delete complaint (Admin only!)
-    // Only RESOLVED complaints!
-    // ============================================
     public void deleteComplaint(Long id) {
         log.info("🗑️ Deleting complaint ID={}", id);
 

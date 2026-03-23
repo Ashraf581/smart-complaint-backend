@@ -32,7 +32,6 @@ public class Complaint {
     @Column(name = "status")
     private String status;
 
-    // NEW FIELD! ← Adding priority
     @Column(name = "priority")
     private String priority;
 
@@ -45,6 +44,20 @@ public class Complaint {
     @Column(name = "username")
     private String username;
 
+    // ── NEW FIELDS ──────────────────
+    @Column(name = "photo", columnDefinition = "TEXT")
+    private String photo;
+
+    @Column(name = "photo_latitude")
+    private Double photoLatitude;
+
+    @Column(name = "photo_longitude")
+    private Double photoLongitude;
+
+    @Column(name = "verification_status")
+    private String verificationStatus;
+    // ─────────────────────────────────
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -53,7 +66,6 @@ public class Complaint {
         this.createdAt = LocalDateTime.now();
         this.status = "PENDING";
 
-        // Only set defaults if ML service didn't set them!
         if (this.department == null || this.department.isEmpty()) {
             this.department = "UNASSIGNED";
         }
@@ -62,6 +74,10 @@ public class Complaint {
         }
         if (this.confidence == null || this.confidence.isEmpty()) {
             this.confidence = "0%";
+        }
+        // NEW — default verification status
+        if (this.verificationStatus == null) {
+            this.verificationStatus = "UNVERIFIED";
         }
     }
 }
